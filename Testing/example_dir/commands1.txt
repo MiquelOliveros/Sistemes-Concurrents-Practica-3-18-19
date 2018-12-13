@@ -1,0 +1,10 @@
+scp18
+ls
+get 1.txt
+put 1.txt
+ls
+get gnu-c-manual.pdf
+put gnu-c-manual.pdf
+ls
+exit
+
