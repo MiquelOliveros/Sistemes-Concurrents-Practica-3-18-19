@@ -28,6 +28,8 @@ typedef struct{
 			int numGet;
 			float mbPut;
 			float mbGet;
+			int tempsPut;
+			int tempsGet;
 }TStatsprog;
 
 		/* Funcions */
@@ -44,8 +46,8 @@ typedef struct{
 		 * @param thread_stats son les estadistiques del client
 		 * @note retorna 0 si ho ha pogut fer i 1 si algun error
 		**/
-		Boolean join_Stats(TStatsprog* serv_stats, TStatsprog* thread_stats);
+		void join_Stats(TStatsprog* serv_stats, TStatsprog* thread_stats);
 		/*
 		 *
 		**/
-		Boolean start_Stats(TStatsprog* stats);
+		void start_Stats(TStatsprog* stats);

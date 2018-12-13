@@ -33,9 +33,10 @@
 #include <unistd.h>
 #include <time.h>
 
+#include<semaphore.h>
 
 // globals
-	char g_pwd[PATH_MAX+1];	/*fer strlen per saber tamany del arxiu al fer stats XXX Innecessari, dividirem una funcio*/
+	char g_pwd[PATH_MAX+1];	
 	int sesion;
 	int maxThreads;
 	int threadsInUse;
@@ -43,6 +44,9 @@
 	TControlTid *controlTids;
 	pthread_t destroyerTid;
 	int serverSocket;
+	sem_t threadsFree;
+	int work;
+	pthread_t tidMutex;
 
 
 // functions
@@ -79,6 +83,8 @@ int main(int a_argc, char **ap_argv)
 	// init vars
 		realpath(ap_argv[1], g_pwd);
 		maxThreads = atoi(ap_argv[3]);
+		sem_init(&threadsFree, 0, maxThreads);  /*Iniciar Semaforo maximos threds*/
+		work = 1;                               /*variable control bucle del servidor*/
 		threadsInUse = 0;
 		sesion = 0;
 		controlTids = (TControlTid*) malloc( sizeof(TControlTid) * maxThreads); 	/*Reservat dinamicament*/
@@ -120,53 +126,53 @@ int main(int a_argc, char **ap_argv)
 	pthread_create(&destroyerTid, NULL, (void *(*) (void *))shine_threads, (void*)controlTids);
 	
 		// dispatcher loop
-		while(true) // Para realizar los test añadimos condición para hacerlos mas fiables sesion<100
+		while(work) // Para realizar los test añadimos condición para hacerlos mas fiables sesion<100
 		{
 			clientAddrSize = sizeof(clientAddr);
 			
 			// wait for a client
 			//TODO
 			/*Implementar concurrencia*/
-			while(threadsInUse < maxThreads)
+			sem_wait(&threadsFree);
+			
+			#ifndef NOSERVERDEBUG
+				printf("\nmain(): waiting for clients...\n");
+    		#endif
+    		
+    		if((clientSocket = accept(serverSocket, (struct sockaddr *)&clientAddr, &clientAddrSize)) != -1)
 			{
-				#ifndef NOSERVERDEBUG
-					printf("\nmain(): waiting for clients...\n");
-				#endif
-				
-				if((clientSocket = accept(serverSocket, (struct sockaddr *)&clientAddr, &clientAddrSize)) != -1)
-				{
-                    sesion++;
+                sesion++;
 					
-					for(i=0; i < maxThreads; i++)
+				for(i=0; i < maxThreads; i++)
+				{
+					if(controlTids[i].estat == 3 && controlTids[i].ready == true && controlTids[i].end == true)
 					{
-						if(controlTids[i].estat == 3 && controlTids[i].ready == true && controlTids[i].end == true)
-						{
-							/*Iniciar dades basiques del client a la estructura de dades del futur thread*/
-							controlTids[i].end = false;
-							controlTids[i].estat = 1;
-							start_Stats(&(controlTids[i].stats));	
-							controlTids[i].sesion_id = sesion;
-							controlTids[i].clientSocket = clientSocket;
-							controlTids[i].ready = false;
-							break;
-						}
+						/*Iniciar dades basiques del client a la estructura de dades del futur thread*/
+						controlTids[i].end = false;
+						controlTids[i].estat = 1;
+						start_Stats(&(controlTids[i].stats));	
+						controlTids[i].sesion_id = sesion;
+						controlTids[i].clientSocket = clientSocket;
+						controlTids[i].ready = false;
+						break;
 					}
+				}
                     
-					#ifndef NOSERVERDEBUG
-						printf("\nmain(): got client connection [addr=%s,port=%d] --> %d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), sesion);
-					#endif
+				#ifndef NOSERVERDEBUG
+					printf("\nmain(): got client connection [addr=%s,port=%d] --> %d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), sesion);
+				#endif
 					 
-					// dispatch job
-					// service the client
-					if(session_create(clientSocket))
-					{
-						threadsInUse +=1;
-						pthread_create(&controlTids[i].tid, NULL, (void*(*) (void *))hajimemasho, (void*)&controlTids[i]);
-					}
-				}		
-				else
-					perror("main()");
-			}
+				// dispatch job
+				// service the client
+				if(session_create(clientSocket))
+				{
+					threadsInUse +=1;
+					pthread_create(&controlTids[i].tid, NULL, (void*(*) (void *))hajimemasho, (void*)&controlTids[i]);
+				}
+			}		
+			else
+				perror("main()");
+				
 		}
 		while(threadsInUse > 0)
 		{
@@ -224,6 +230,7 @@ int main(int a_argc, char **ap_argv)
 						controlTids[i].ready = true;
 						controlTids[i].estat = 3;
 						threadsInUse -= 1;
+						sem_post(&threadsFree);
 						//j++;
 					}
 				}
@@ -618,6 +625,7 @@ void controlador(int numSignal)
 				close(controlTids[i].clientSocket); // parent doesn't need this socket
 				controlTids[i].end = true;
 				controlTids[i].estat = 3;
+				sem_post(&threadsFree);
 				threadsInUse -=1;
 			}
 			i++;
