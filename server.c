@@ -10,6 +10,7 @@
 
 #include "service.h"
 #include "server.h"
+#include "stats.h"
 
 #include <unistd.h>
 #include <limits.h>
