@@ -17,23 +17,22 @@
 #include <string.h>
 #include <stdio.h>
 
-#define KNRM  "\x1B[0m"     
-#define KRED  "\x1B[31m"    
-#define KGRN  "\x1B[32m"
-#define KYEL  "\x1B[33m"
-#define KBLU  "\x1B[34m"
-#define KMAG  "\x1B[35m"
-#define KCYN  "\x1B[36m"
-#define KWHT  "\x1B[37m"
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 typedef struct{
 			clock_t temps_inicial;
 			clock_t temps_final;
 			int comandes;
-			int tempsPut;
 			int numPut;
-			int tempsGet;
 			int numGet;
+			double tempsPut;
+			double tempsGet;
 			float mbPut;
 			float mbGet;
 }TStatsprog;
@@ -72,6 +71,22 @@ typedef struct{
 		 *@param stats Estructura que conté les estadístiques finals de la Sesio
 		**/
 		void printSesionStats(TStatsprog* stats);
+		
+		/**
+		 *Incrementa les comandes executades i comprova % 5
+		 *@param stats Estructura que conté les estadístiques finals de la Sesio
+		**/
+		void incrementarComandes(TStatsprog* stats);
+		
+		/**
+		 *Incrementa les estadístiques particulars del put i get
+		 *@param mbTrans historial Mb trans
+		 *@param incMb Mb transferits
+		 *@param tempsTrans historial temps ocupat fent trans
+		 *@param incTemps temps tardat en fer la trans
+		 *@param comandesTrans comandes realitzades
+		**/
+		void incrementarTransferencia(float* mbTrans, float incMb, double* tempsTrans, double incTemps, int* comandesTrans);
 		
 
 		

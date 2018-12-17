@@ -12,9 +12,10 @@
 #define SERVICE_H
 
 #include "siftp.h"
+#include "stats.h"
 #include <pthread.h>
 #include <time.h>
-
+/*
 typedef struct{
 			clock_t temps_inicial;
 			clock_t temps_final;
@@ -24,7 +25,7 @@ typedef struct{
 			float mbPut;
 			float mbGet;
 }TStatsprog;
-
+*/
 typedef struct{
 			int sesion_id;
 			int estat;							/*Identificador del client*/

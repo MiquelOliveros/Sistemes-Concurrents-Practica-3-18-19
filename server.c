@@ -10,7 +10,6 @@
 
 #include "service.h"
 #include "server.h"
-#include "stats.h"
 
 #include <unistd.h>
 #include <limits.h>
@@ -52,13 +51,6 @@
 
 // functions
 void controlador(int);
-
-void start_Stats(TStatsprog* stats);
-
-void join_Stats(TStatsprog* serv_stats, TStatsprog* thread_stats);
-
-void printStats(TStatsprog* stats);
-
 
 void sigchld_handler(int s)
 {
@@ -435,7 +427,7 @@ Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a
 				
 				#ifndef NOSERVERDEBUG
 					printf("[%d] ls(): status=%d\n",controlData->sesion_id, tempStatus);
-					controlData->stats.comandes += 1;
+					incrementarComandes(&controlData->stats);
 				#endif
 				
 			// clean up
@@ -448,14 +440,14 @@ Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a
 	else if(strcmp(ap_argv[0], "pwd") == 0)
 	{
 		if(service_sendStatus(a_socket, true)){
-			controlData->stats.comandes += 1;
+			incrementarComandes(&controlData->stats);
 			return siftp_sendData(a_socket, g_pwd, strlen(g_pwd));
 		}
 	}
 	
 	else if(strcmp(ap_argv[0], "cd") == 0 && a_argc > 1)
 	{
-		controlData->stats.comandes += 1;
+		incrementarComandes(&controlData->stats);
 		return service_sendStatus(a_socket, service_handleCmd_chdir(g_pwd, ap_argv[1]));
 	}
 	
@@ -475,10 +467,15 @@ Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a
 					if(service_sendStatus(a_socket, true))
 					{
 						// send file
+						clock_t temps_inicial = clock();
 						tempStatus = siftp_sendData(a_socket, dataBuf, dataBufLen);
-						controlData->stats.comandes += 1;
-						controlData->stats.numGet += 1;
-						controlData->stats.mbGet = controlData->stats.mbGet + (float)dataBufLen/(1024*1024);
+						clock_t temps_final = clock();
+						float incMb = (float)dataBufLen/(1024*1024);
+						double incTemps =(double)((temps_final - temps_inicial) / 1000000.0); //(temps en s)
+						incrementarTransferencia(&controlData->stats.mbGet, incMb, &controlData->stats.tempsGet, incTemps, &controlData->stats.numGet);
+						incrementarComandes(&controlData->stats);
+						//controlData->stats.numGet += 1;
+						//controlData->stats.mbGet = controlData->stats.mbGet + (float)dataBufLen/(1024*1024);
 						#ifndef NOSERVERDEBUG
 							printf("[%d] get(): file sent %s.\n",controlData->sesion_id, tempStatus ? "OK" : "FAILED");
 						#endif
@@ -527,11 +524,15 @@ Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a
 						#ifndef NOSERVERDEBUG
 							printf("[%d] put(): about to write to file '%s'\n",controlData->sesion_id, dstPath);
 						#endif
-						
+						clock_t temps_inicial = clock();
 						tempStatus = service_writeFile(dstPath, dataBuf, dataBufLen);
-						controlData->stats.comandes += 1;
-						controlData->stats.numPut += 1;
-						controlData->stats.mbPut = controlData->stats.mbPut + (float)dataBufLen/(1024*1024);
+						clock_t temps_final = clock();
+						float incMb = (float)dataBufLen/(1024*1024);
+						double incTemps =(double)((temps_final - temps_inicial) / 1000000.0); //(temps en s)
+						incrementarTransferencia(&controlData->stats.mbPut, incMb, &controlData->stats.tempsGet, incTemps, &controlData->stats.numPut);
+						incrementarComandes(&controlData->stats);
+						//controlData->stats.numPut += 1;
+						//controlData->stats.mbPut = controlData->stats.mbPut + (float)dataBufLen/(1024*1024);
 						free(dataBuf);
 						
 						#ifndef NOSERVERDEBUG
@@ -568,48 +569,6 @@ Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a
 	return false;
 }
 
-void printStats(TStatsprog* stats)
-{
-	float min;
-	float comandesMin, mbPutsec, mbGetsec;
-	double temps =(double)((stats->temps_final - stats->temps_inicial) / 1000000.0); //(temps en s)
-	printf("Temps connexio:\t\t\t%lf s\n", temps);
-	printf("Comandes executades:\t\t\t%d\n", stats->comandes);
-
-	min = temps / 60;
-	comandesMin = (float) stats->comandes / min;
-	printf("Comandes/min executades:\t\t%f\n", comandesMin);
-
-	printf("Fitxers pujats:\t\t\t\t%d\n", stats->numPut);
-
-	mbPutsec = stats->mbPut/(temps*1024);
-	printf("Velocitat de pujada:\t\t\t%f MB/s\n",mbPutsec);
-
-	printf("Fitxers descarregats:\t\t\t%d\n", stats->numGet);
-
-	mbGetsec = stats->mbGet/(temps*1024);
-	printf("Velocitat de baixada:\t\t\t%f MB/s\n",mbGetsec);
-}
-
-void join_Stats(TStatsprog* serv_stats, TStatsprog* thread_stats)
-{
-	serv_stats->comandes = serv_stats->comandes + thread_stats->comandes;
-	serv_stats->numPut = serv_stats->numPut + thread_stats->numPut;
-	serv_stats->numGet = serv_stats->numGet + thread_stats->numGet;
-	serv_stats->mbPut = serv_stats->mbPut + thread_stats->mbPut;
-	serv_stats->mbGet = serv_stats->mbGet + thread_stats->mbGet;
-}
-
-void start_Stats(TStatsprog* stats)
-{
-	stats->temps_inicial = clock();
-	stats->comandes = 0;
-	stats->numPut = 0;
-	stats->numGet = 0;
-	stats->mbPut = 0;
-	stats->mbGet = 0;	
-}
-
 //if ctrl+c close server
 void controlador(int numSignal)
 {	
@@ -633,7 +592,7 @@ void controlador(int numSignal)
 		}
 	printf("\nRECUPERANT ESTADISTIQUES...\n");
 	servStats.temps_final = clock();
-	printStats(&servStats);
+	printStatsGlobals(&servStats);
 	close(serverSocket);
 	exit(0);
 }

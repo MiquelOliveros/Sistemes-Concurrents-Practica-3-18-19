@@ -17,7 +17,7 @@ ifeq ($(uname_S),SunOS)
 endif
 
 # targets
-DEPS=siftp.o service.o #stats.o
+DEPS=siftp.o service.o stats.o
 TARGETS=siftp siftpd
 
 all: $(TARGETS)

@@ -32,27 +32,6 @@
 
 //		#define CONCURRENT 1
 
-
-		/* Funcions */
-
-		/**
-		 *Imprimeix per pantalla les stats del client/servidor
-		 * @param stats Estructura amb les dades necessaries per fer els calculs
-		**/
-		void printStats(TStatsprog* stats);
-		
-		/**
-		 *Acumula les dades dels diferents clients fent un comput general
-		 * @param serv_stats son les estadistiques acumulades del servidor
-		 * @param thread_stats son les estadistiques del client
-		 * @note retorna 0 si ho ha pogut fer i 1 si algun error
-		**/
-		void join_Stats(TStatsprog* serv_stats, TStatsprog* thread_stats);
-		/*
-		 *
-		**/
-		void start_Stats(TStatsprog* stats);
-
 	/* services */
 	
 		/**
@@ -62,8 +41,15 @@
 		 */
 		Boolean service_create(int *ap_socket, const int a_port);
 
+		/* Funcions */
+		
 		void hajimemasho(TControlTid *controlData);
 		
 		void shine_threads(TControlTid *controlData);
 		
 #endif
+
+
+
+		
+
