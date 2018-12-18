@@ -45,7 +45,7 @@
 		
 		void hajimemasho(TControlTid *controlData);
 		
-		void shine_threads(TControlTid *controlData);
+		void shine_threads();
 		
 #endif
 

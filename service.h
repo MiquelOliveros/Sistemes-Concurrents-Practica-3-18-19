@@ -13,6 +13,7 @@
 
 #include "siftp.h"
 #include "stats.h"
+#include "circularQueue.h"
 #include <pthread.h>
 #include <time.h>
 /*

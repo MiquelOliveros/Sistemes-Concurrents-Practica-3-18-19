@@ -42,13 +42,14 @@
 	int maxThreads;
 	int threadsInUse;
 	TStatsprog servStats;
-	TControlTid *controlTids;
+	//TControlTid *controlTids;
 	pthread_t destroyerTid;
 	int serverSocket;
+	//variables 3a prac
 	sem_t threadsFree;
 	int work;
 	pthread_t tidMutex;
-
+	circularQueue queue_finish;
 
 // functions
 void controlador(int);
@@ -81,16 +82,18 @@ int main(int a_argc, char **ap_argv)
 		work = 1;                               /*variable control bucle del servidor*/
 		threadsInUse = 0;
 		sesion = 0;
-		controlTids = (TControlTid*) malloc( sizeof(TControlTid) * maxThreads); 	/*Reservat dinamicament*/
+		start_Stats(&servStats);
+		initDefQueue(&queue_finish, maxThreads);    /*cua circular dels threads finalitzats*/
+		//controlTids = (TControlTid*) malloc( sizeof(TControlTid) * maxThreads); 	/*Reservat dinamicament*/
 																					/*Passar al thread un punter a una de les posicions d'aquest array*/ //DONE
-		int i;
+		/*int i;
 		for(i=0;i<maxThreads;i++)
 		{
 			controlTids[i].ready = true;
 			controlTids[i].end = true;
 			controlTids[i].estat = 3;
 			start_Stats(&(controlTids[i].stats));
-		}
+		}*/
 
 	// create service
 		if(!service_create(&serverSocket, strtol(ap_argv[2], (char**)NULL, 10)))
@@ -117,7 +120,7 @@ int main(int a_argc, char **ap_argv)
 	}
 
 	/*Creem un fil que s'encarregara deprocessar les estadistiques i fer el join dels fils*/
-	pthread_create(&destroyerTid, NULL, (void *(*) (void *))shine_threads, (void*)controlTids);
+	pthread_create(&destroyerTid, NULL, (void *(*) (void *))shine_threads, NULL);
 	
 		// dispatcher loop
 		while(work) // Para realizar los test añadimos condición para hacerlos mas fiables sesion<100
@@ -136,12 +139,19 @@ int main(int a_argc, char **ap_argv)
     		if((clientSocket = accept(serverSocket, (struct sockaddr *)&clientAddr, &clientAddrSize)) != -1)
 			{
                 sesion++;
-					
-				for(i=0; i < maxThreads; i++)
+                
+                TControlTid *controlTid = (TControlTid*) malloc(sizeof(TControlTid));
+				controlTid->end = false;
+				controlTid->estat = 1;
+				start_Stats(&(controlTid->stats));	
+				controlTid->sesion_id = sesion;
+				controlTid->clientSocket = clientSocket;
+				controlTid->ready = false;
+				/*for(i=0; i < maxThreads; i++)
 				{
 					if(controlTids[i].estat == 3 && controlTids[i].ready == true && controlTids[i].end == true)
 					{
-						/*Iniciar dades basiques del client a la estructura de dades del futur thread*/
+						//Iniciar dades basiques del client a la estructura de dades del futur thread
 						controlTids[i].end = false;
 						controlTids[i].estat = 1;
 						start_Stats(&(controlTids[i].stats));	
@@ -150,7 +160,7 @@ int main(int a_argc, char **ap_argv)
 						controlTids[i].ready = false;
 						break;
 					}
-				}
+				}*/
                     
 				#ifndef NOSERVERDEBUG
 					printf("\nmain(): got client connection [addr=%s,port=%d] --> %d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port), sesion);
@@ -160,8 +170,8 @@ int main(int a_argc, char **ap_argv)
 				// service the client
 				if(session_create(clientSocket))
 				{
-					threadsInUse +=1;
-					pthread_create(&controlTids[i].tid, NULL, (void*(*) (void *))hajimemasho, (void*)&controlTids[i]);
+					//threadsInUse +=1;
+					pthread_create(&controlTid->tid, NULL, (void*(*) (void *))hajimemasho, (void*)controlTid);
 				}
 			}		
 			else
@@ -180,7 +190,7 @@ int main(int a_argc, char **ap_argv)
 		printf("\nRECUPERANT ESTADISTIQUES...\n");
 		servStats.temps_final = clock();
 		printStats(&servStats);
-		free(controlTids);
+		//free(controlTids);
 		// destroy service
 		close(serverSocket);
 		return 0;
@@ -193,19 +203,42 @@ int main(int a_argc, char **ap_argv)
 		controlData->stats.temps_final = clock();
 		controlData->end = true;
 		controlData->estat = 2;
-		pthread_exit(NULL);
+		return ((void *)controlData);
 	}
 	
 	/*Funció ques'executa per comprovar si un fild'atenció ha finalitzat o no
 	 *Inicia les estadístiques del servidor i va acumulant-les
 	 *Deixa l'estructura global preparada per la següent atenció a un client
 	*/
-	void shine_threads(TControlTid *controlTids)
+	void shine_threads()
 	{
 		int i; // int j;
 		//j = 0;
-		start_Stats(&servStats);
-		while(true) // Para realizar los tests y tener una condición añadida y hacerlo mas fiable j<100
+		lock(queue_finish);
+		
+		while(queue_finish.size == 0)
+		{
+		    wait(queue_finish.size, queue_finish);
+		    int tid = delQueue(&queue_finish);
+		    if(pthread_join(tid, (void **)&controlTid) == -1)
+		    {
+				perror("Error al finalitzar la petició del client\n");
+			}else{
+				join_Stats(&servStats, *controlTid->stats);
+				printf("\nEstadístiques parcials sessio %d\n", **controlTid->sesion_id);
+				printStats(*controlTid->stats);
+				session_destroy(**controlTid->clientSocket);
+				close(**controlTid->clientSocket); // parent doesn't need this socket								
+				free(*controlTid);
+				//controlTids[i].ready = true;
+				//controlTids[i].estat = 3;
+				//threadsInUse -= 1;
+				sem_post(&threadsFree);
+				//j++;
+			}
+		}
+		unlock(queue_finish);
+		/*while(true) // Para realizar los tests y tener una condición añadida y hacerlo mas fiable j<100
 		{
 			for(i = 0 ;i < maxThreads; i++)
 			{
@@ -229,7 +262,7 @@ int main(int a_argc, char **ap_argv)
 					}
 				}
 			}
-		}
+		}*/
 		pthread_exit(NULL);
 	}
 
@@ -581,7 +614,7 @@ void controlador(int numSignal)
 {	
 	printf("\nFinalitzant tasques...\n");
 	pthread_cancel(destroyerTid);
-		int i=0;
+		/*int i=0;
 		while(threadsInUse > 0)
 		{
 			if(controlTids[i].estat != 3 && controlTids[i].end == false)
@@ -596,7 +629,7 @@ void controlador(int numSignal)
 				threadsInUse -=1;
 			}
 			i++;
-		}
+		}*/
 	printf("\nRECUPERANT ESTADISTIQUES...\n");
 	servStats.temps_final = clock();
 	printStatsGlobals(&servStats);
