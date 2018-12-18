@@ -32,6 +32,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include<semaphore.h>
 
@@ -467,12 +468,15 @@ Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a
 					if(service_sendStatus(a_socket, true))
 					{
 						// send file
-						clock_t temps_inicial = clock();
+						struct timeval temps_inicial, temps_final;
+						gettimeofday(&temps_inicial,NULL);
 						tempStatus = siftp_sendData(a_socket, dataBuf, dataBufLen);
-						clock_t temps_final = clock();
+						gettimeofday(&temps_final,NULL);
 						float incMb = (float)dataBufLen/(1024*1024);
-						double incTemps =(double)((temps_final - temps_inicial) / 1000000.0); //(temps en s)
-						incrementarTransferencia(&controlData->stats.mbGet, incMb, &controlData->stats.tempsGet, incTemps, &controlData->stats.numGet);
+						double incTemps = (double) (temps_final.tv_sec - temps_inicial.tv_sec) 
+						                            + ((temps_final.tv_usec - temps_inicial.tv_usec)/1000000.0);
+						incrementarTransferencia(&controlData->stats.mbGet, incMb, &controlData->stats.tempsGet, 
+						                            incTemps, &controlData->stats.numGet);
 						incrementarComandes(&controlData->stats);
 						//controlData->stats.numGet += 1;
 						//controlData->stats.mbGet = controlData->stats.mbGet + (float)dataBufLen/(1024*1024);
@@ -524,12 +528,15 @@ Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a
 						#ifndef NOSERVERDEBUG
 							printf("[%d] put(): about to write to file '%s'\n",controlData->sesion_id, dstPath);
 						#endif
-						clock_t temps_inicial = clock();
+						struct timeval temps_inicial, temps_final;
+						gettimeofday(&temps_inicial,NULL);
 						tempStatus = service_writeFile(dstPath, dataBuf, dataBufLen);
-						clock_t temps_final = clock();
+						gettimeofday(&temps_final,NULL);
 						float incMb = (float)dataBufLen/(1024*1024);
-						double incTemps =(double)((temps_final - temps_inicial) / 1000000.0); //(temps en s)
-						incrementarTransferencia(&controlData->stats.mbPut, incMb, &controlData->stats.tempsGet, incTemps, &controlData->stats.numPut);
+						double incTemps = (double) (temps_final.tv_sec - temps_inicial.tv_sec) 
+						                            + ((temps_final.tv_usec - temps_inicial.tv_usec)/1000000.0);
+						incrementarTransferencia(&controlData->stats.mbPut, incMb, &controlData->stats.tempsPut, 
+						                            incTemps, &controlData->stats.numPut);
 						incrementarComandes(&controlData->stats);
 						//controlData->stats.numPut += 1;
 						//controlData->stats.mbPut = controlData->stats.mbPut + (float)dataBufLen/(1024*1024);
