@@ -1,10 +1,10 @@
 #include "circularQueue.h"
 
-int addQueue(circularQueue *queue, int element)
+int addQueue(circularQueue *queue, double element)
 {
     if(queue->size == queue->maxSize)
     {
-        printf("NO he pasat CONDICIO:  %d\n", element);
+        printf("NO he pasat CONDICIO:  %lf\n", element);
         return 0;
     }
     else{
@@ -15,14 +15,14 @@ int addQueue(circularQueue *queue, int element)
     }
 }
 
-int delQueue(circularQueue *queue)
+double delQueue(circularQueue *queue)
 {
     if(queue->size == 0)
     {
         return 0;
     }
     else{
-        int elem = queue->array[(queue->heap)];
+        double elem = queue->array[(queue->heap)];
         queue->heap = (queue->heap + 1) % queue->maxSize;
         queue->size--;
         return elem;
@@ -35,6 +35,6 @@ void initDefQueue(circularQueue *queue, int maxSize)
     queue->size = 0;
     queue->heap = 0;
     queue->tail = -1;
-    queue->array = (int *) malloc(sizeof(queue->maxSize));
+    queue->array = (double *) malloc(sizeof(double) * queue->maxSize);
 }
 

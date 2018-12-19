@@ -29,9 +29,6 @@ typedef struct{
 */
 typedef struct{
 			int sesion_id;
-			int estat;							/*Identificador del client*/
-			Boolean ready;							/*Preparat nou us/no*/
-			Boolean end;							/*Ha acabat/no*/
 			pthread_t tid;							/*Tid del Thread*/
 			int clientSocket;						/*Socket del client*/
 			TStatsprog stats;						/*Estadistiques parcials*/			

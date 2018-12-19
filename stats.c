@@ -9,10 +9,12 @@
 **/
 
 #include "stats.h"
+#include <time.h>
+#include <sys/time.h>
 
 void start_Stats(TStatsprog* stats)
 {
-	stats->temps_inicial = clock(); /*Eliminar un cop acabades les proves noves*/
+	gettimeofday(&stats->temps_inicial,NULL);
 	stats->comandes = 0;
 	stats->numPut = 0;
 	stats->numGet = 0;
@@ -37,14 +39,15 @@ void join_Stats(TStatsprog* serv_stats, TStatsprog* thread_stats)
 //TODO modificar per calcular en temps real (tempsPut, tempsGet) clock DOES NOT WORK
 void printStats(TStatsprog* stats)
 {
-	float min;
 	float comandesMin, mbPutsec, mbGetsec;
-	double temps =(double)((stats->temps_final - stats->temps_inicial) / 1000000.0); //(temps en s) 
+	//(temps en s) 
+	double temps = (double) (stats->temps_final.tv_sec - stats->temps_inicial.tv_sec) 
+						       + ((stats->temps_final.tv_usec - stats->temps_inicial.tv_usec)/1000000.0); 
 	printf("Temps connexio:\t\t\t%lf s\n", temps);
 	printf("Comandes executades:\t\t\t%d\n", stats->comandes);
+    
 
-	min = temps / 60;
-	comandesMin = (float) stats->comandes / min;
+	comandesMin = (float) stats->comandes * 60 / temps;
 	printf("Comandes/min executades:\t\t%f\n", comandesMin);
 
 	printf("Fitxers pujats:\t\t\t\t%d\n", stats->numPut);
@@ -80,7 +83,7 @@ void incrementarComandes(TStatsprog* stats)
 {
     stats->comandes += 1;
     if(stats->comandes % 5 == 0){
-        printSesionStats(stats);        //XXX posar estats servidor
+        printStatsGlobals(stats);        //XXX posar estats servidor
     }
 }
 

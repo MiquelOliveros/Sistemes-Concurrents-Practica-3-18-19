@@ -24,10 +24,10 @@ all: $(TARGETS)
 
 siftpd: $(DEPS) server.o
 	$(CC) $(CFLAGS) -o $@ $^
-	$(DEPS) circularQueue.o
-	$(CC) $(CFLAGS) -o $@ $^
-	$(DEPS) stats.o
-	$(CC) $(CFLAGS) -o $@ $^ 
+	#$(DEPS) circularQueue.o
+	#$(CC) $(CFLAGS) -o $@ $^
+	#$(DEPS) stats.o
+	#$(CC) $(CFLAGS) -o $@ $^ 
 
 siftp: $(DEPS) client.o
 	$(CC) $(CFLAGS) -o $@ $^

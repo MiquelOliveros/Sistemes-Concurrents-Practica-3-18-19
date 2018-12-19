@@ -6,7 +6,7 @@ typedef struct{
     int heap;
     int tail;
     int size;
-    int *array;
+    double *array;
 }circularQueue;
 
 		/* Funcions */
@@ -17,13 +17,13 @@ typedef struct{
 		 *@param queue punter a la cua circular que conté les dades
 		 *@param element integer a inserir a la cua
 		**/
-        int addQueue(circularQueue *queue, int element);
+        int addQueue(circularQueue *queue, double element);
 
 		/**
 		 * Inicialitza l'estructura de dades que s'empra per emmagatzemar estadístiques
 		 *@param queue punter a  la cua circular que conté les dades
 		**/
-        int delQueue(circularQueue *queue);
+        double delQueue(circularQueue *queue);
 
 		/**
 		 * Inicialitza l'estructura de dades que s'empra per comunicar la finalitzacio de tids

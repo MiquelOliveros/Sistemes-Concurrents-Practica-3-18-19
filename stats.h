@@ -26,8 +26,8 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 typedef struct{
-			clock_t temps_inicial;
-			clock_t temps_final;
+			struct timeval temps_inicial;
+			struct timeval temps_final;
 			int comandes;
 			int numPut;
 			int numGet;
