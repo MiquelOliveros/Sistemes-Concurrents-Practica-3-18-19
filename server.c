@@ -1,7 +1,7 @@
 /**
 *################################################################
 *#   Codi Font													#
-*#	Practica 1 Sistemes Concurrents i Paralels					#
+*#	Practica 3 Sistemes Concurrents i Paralels					#
 *#	Alumnes:													#
 *#		Joan Palau Oncins		- 47692135W						#
 *#		Miquel Oliveros Muelas	- 0024201						#
@@ -43,7 +43,7 @@
 	int threadsInUse;
 	pthread_t destroyerTid;
 	int serverSocket;
-	int fatality;
+	int work;
 	
 	//variables 3a prac
 	sem_t threadsFree;
@@ -56,7 +56,7 @@
 	pthread_mutex_t mutexServerStats;
 	TStatsprog serverStats;
 	
-	pthread_mutex_t controlC;
+	pthread_mutex_t threadsUse;
 	pthread_barrier_t end;
 
 // functions
@@ -89,7 +89,7 @@ int main(int a_argc, char **ap_argv)
 		                              
 		threadsInUse = 0; //XXX s'empra per la barrera del controlC
 		sesion = 0;
-		fatality = 0;
+		work = 1;
 		
 		/*Iniciar Semaforo maximos threds*/
 		sem_init(&threadsFree, 0, maxThreads);
@@ -105,7 +105,7 @@ int main(int a_argc, char **ap_argv)
 		initDefQueue(&queue_finish, maxThreads);
 		
 		/*Iniciar mutex Ctrl+c*/    
-		pthread_mutex_init(&controlC, NULL);
+		pthread_mutex_init(&threadsUse, NULL);
 		
 
 	// create service
@@ -134,10 +134,11 @@ int main(int a_argc, char **ap_argv)
 	
 	/*Creem un fil que s'encarregara deprocessar les estadistiques i fer el join dels fils*/
 	pthread_create(&destroyerTid, NULL, (void *(*) (void *))shine_threads, NULL);
-	threadsInUse++;
+	
+    threadsInUse++;
 	
 		// dispatcher loop
-		while(!fatality)
+		while(work)
 		{
 			clientAddrSize = sizeof(clientAddr);
 			
@@ -167,27 +168,25 @@ int main(int a_argc, char **ap_argv)
 				// service the client
 				if(session_create(clientSocket))
 				{
-				    threadsInUse++;
 					pthread_create(&controlTid->tid, NULL, (void*(*) (void *))hajimemasho, (void*)controlTid);
+					pthread_mutex_lock(&threadsUse);
+                    threadsInUse++;
+                    pthread_mutex_unlock(&threadsUse);
 				}
 				
-			pthread_mutex_unlock(&controlC);
 			}		
 			else{
 				perror("main()");
-				pthread_mutex_unlock(&controlC);
-				sem_post(&threadsFree);
 			}
 				
 		}
-
-		// destroy service
-		close(serverSocket);
-		return 0;
+		return -1;
 }
 
-	/*Funció que executen els fils dels clients per respondre les peticions*/
-	void* hajimemasho(TControlTid *controlData)
+	/**Funció que executen els fils dels clients per respondre les peticions
+	 * Imprimeixen les estadístiques finals de cada client (Nou)
+	**/
+	void hajimemasho(TControlTid *controlData)
 	{
 		service_loop(controlData->clientSocket, controlData);
 		gettimeofday(&controlData->stats.temps_final, NULL);
@@ -200,67 +199,50 @@ int main(int a_argc, char **ap_argv)
 		session_destroy(controlData->clientSocket);
 		close(controlData->clientSocket); // parent doesn't need this socket								
 		
-		if(!fatality){
-		    pthread_mutex_lock(&mutexQueue);        /*LOCK*/
-	        addQueue(&queue_finish, controlData->tid);
-	        pthread_cond_signal(&finishSincro);
-	        pthread_mutex_unlock(&mutexQueue);      /*UNLOCK*/
-		}
-		else{
-		    pthread_barrier_wait(&end);
-		}
+		pthread_mutex_lock(&mutexQueue);        /*LOCK*/
+	    addQueue(&queue_finish, controlData->tid);
+	    pthread_cond_signal(&finishSincro);
+	    pthread_mutex_unlock(&mutexQueue);      /*UNLOCK*/
 
 		free(controlData);
 
 		pthread_exit(NULL);
 	}
 	
-	/*Funció ques'executa per comprovar si un fild'atenció ha finalitzat o no
-	 *Inicia les estadístiques del servidor i va acumulant-les
-	 *Deixa l'estructura global preparada per la següent atenció a un client
-	*/
-	void shine_threads()
-	{	
-        while(true)
-        {
-        	if(fatality){
-            	pthread_mutex_lock(&mutexQueue);
-	            while(queue_finish.size != 0)
-                {
-                    pthread_t tid = delQueue(&queue_finish);       ///XXX int no suficient per emmagatzemar TID
-                    if(pthread_join(tid, NULL) == -1)
-                    {
-		                perror("Error al finalitzar la petició del client\n");
-	                }else{
-	                    threadsInUse--;
-		                sem_post(&threadsFree);
-	                }
-                }
-                pthread_mutex_unlock(&mutexQueue);
-                pthread_barrier_wait(&end);
-                pthread_exit(NULL);                                             
-        	}else{	
-        	    pthread_mutex_lock(&mutexQueue);
-	            while(queue_finish.size == 0 && !fatality)
-	            {
-	                pthread_cond_wait(&finishSincro, &mutexQueue);
-	                while(queue_finish.size != 0)
-	                {
-	                    pthread_t tid = delQueue(&queue_finish);       ///XXX int no suficient per emmagatzemar TID
-	                    if(pthread_join(tid, NULL) == -1)
-	                    {
-			                perror("Error al finalitzar la petició del client\n");
-		                }else{
-		                    threadsInUse--;
-			                sem_post(&threadsFree);
-		                }
-	                } 
-	            }
+/*Funció que s'executa per finalitzar els fils d'execució dels clients*/
+
+void shine_threads()
+{	
+    while(true)
+    {
+	    pthread_mutex_lock(&mutexQueue);	
+	    while(queue_finish.size == 0)
+	    {
+	        if(!work && threadsInUse == 1){
+	            pthread_barrier_wait(&end);
 	            pthread_mutex_unlock(&mutexQueue);
+	            pthread_exit(NULL);
 	        }
-        }	    		
-		pthread_exit(NULL);
+	        pthread_cond_wait(&finishSincro, &mutexQueue);
+	        while(queue_finish.size != 0)
+	        {
+	            pthread_t tid = delQueue(&queue_finish);       ///XXX int no suficient per emmagatzemar TID
+	            if(pthread_join(tid, NULL) == -1)
+	            {
+			        perror("Error al finalitzar la petició del client\n");
+		        }else{
+		            pthread_mutex_lock(&threadsUse);
+				    threadsInUse--;
+				    pthread_mutex_unlock(&threadsUse);
+			        sem_post(&threadsFree);
+		        }
+	        }  
+	    }
+	    pthread_mutex_unlock(&mutexQueue);
 	}
+	
+	pthread_exit(NULL);
+}
 
 Boolean service_create(int *ap_socket, const int a_port)
 {
@@ -429,10 +411,8 @@ void service_loop(const int a_socket, TControlTid *controlData)
 				*/
 		}
 	}
-	/*modificar aqui siha acabat el thread o no*/
 }
-/*Afegir punter a la estructura de dades de stats*/
-//TODO
+
 Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a_argc, TControlTid *controlData)
 {
 	// variables
@@ -641,42 +621,40 @@ Boolean service_handleCmd(const int a_socket, const String *ap_argv, const int a
 //if ctrl+c close server
 void controlador(int numSignal)
 {	
-	printf("\nFinalitzant tasques...\n");
-	fatality = 1;
-	if(pthread_barrier_init(&end, NULL, threadsInUse))
+	printf(ANSI_COLOR_BLUE "\nFinalitzant tasques...\n" ANSI_COLOR_RESET);
+	work = 0;
+	printf(ANSI_COLOR_BLUE "W8ing clients to end...\n" ANSI_COLOR_RESET);
+	printf(ANSI_COLOR_BLUE "W8ing threads to finish...\n" ANSI_COLOR_RESET);
+	if(pthread_barrier_init(&end, NULL, 2))
 	{
 	    perror(ANSI_COLOR_RED "No se pude crear la barrera\n" ANSI_COLOR_RESET);
 	}
-	
-    while(queue_finish.size != 0)
-    {
-        pthread_t tid = delQueue(&queue_finish);       ///XXX int no suficient per emmagatzemar TID
-        if(pthread_join(tid, NULL) == -1)
-        {
-            perror("Error al finalitzar la petició del client\n");
-        }else{
-            threadsInUse--;
-            sem_post(&threadsFree);
-        }
-    }
+	pthread_cond_signal(&finishSincro);
+	pthread_barrier_wait(&end);
+	threadsInUse--;
     pthread_join(destroyerTid, NULL);
+    
+    printf(ANSI_COLOR_BLUE"\nRECOVERING FINAL STATISTICS...\n" ANSI_COLOR_RESET);
+	gettimeofday(&serverStats.temps_final, NULL);
+	printStatsGlobals(&serverStats);
+    
+    printf(ANSI_COLOR_BLUE "Cleaning everything up...\n" ANSI_COLOR_RESET);
     pthread_barrier_destroy(&end);
     
     pthread_mutex_destroy(&mutexQueue);
     pthread_mutex_destroy(&mutexServerStats);
     pthread_mutex_destroy(&mutexStats);
+    pthread_mutex_destroy(&threadsUse);
     
     pthread_cond_destroy(&finishSincro);
     
     destroyQueue(&queue_finish);
     
-    pthread_mutex_destroy(&controlC);
-    
     sem_destroy(&threadsFree);
-    
-	printf("\nRECUPERANT ESTADISTIQUES...\n");
-	gettimeofday(&serverStats.temps_final, NULL);
-	printStatsGlobals(&serverStats);
+	
+	// destroy service
 	close(serverSocket);
+	sleep(2); /*Questio merament estetica*/
+	printf(ANSI_COLOR_BLUE "Server closed\n" ANSI_COLOR_RESET);
 	exit(0);
 }

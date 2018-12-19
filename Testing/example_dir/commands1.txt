@@ -1,10 +1,10 @@
 scp18
 ls
-get 1.txt
-put 1.txt
+get prova.txt
+put prova.txt
 ls
-get gcc.pdf
-put gcc.pdf
+get prova.txt
+put prova.txt
 ls
 exit
 

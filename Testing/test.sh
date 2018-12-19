@@ -15,7 +15,7 @@ FTP_PATH="../.."
 for i in {1..50}
 do
 	cd example_dir
-	$FTP_PATH/siftp localhost 77777 < commands1.txt &
+	$FTP_PATH/siftp localhost 77778 < commands1.txt &
 	cd ..
 	pids[${i}]=$! 
 done
