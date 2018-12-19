@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 typedef struct{
     int maxSize;
     int heap;
     int tail;
     int size;
-    double *array;
+    pthread_t *array; 
 }circularQueue;
 
 		/* Funcions */
@@ -17,7 +18,7 @@ typedef struct{
 		 *@param queue punter a la cua circular que conté les dades
 		 *@param element integer a inserir a la cua
 		**/
-        int addQueue(circularQueue *queue, double element);
+        int addQueue(circularQueue *queue, pthread_t element);
 
 		/**
 		 * Inicialitza l'estructura de dades que s'empra per emmagatzemar estadístiques
@@ -32,6 +33,11 @@ typedef struct{
 		**/
         void initDefQueue(circularQueue *queue, int maxSize);
         
+        /**
+		 * Allibera l'estructura
+		 *@param queue Estructura a destruir
+		**/
+        void destroyQueue(circularQueue* queue);
         
 
 

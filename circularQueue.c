@@ -1,10 +1,9 @@
 #include "circularQueue.h"
 
-int addQueue(circularQueue *queue, double element)
+int addQueue(circularQueue *queue, pthread_t element)
 {
     if(queue->size == queue->maxSize)
     {
-        printf("NO he pasat CONDICIO:  %lf\n", element);
         return 0;
     }
     else{
@@ -22,7 +21,7 @@ double delQueue(circularQueue *queue)
         return 0;
     }
     else{
-        double elem = queue->array[(queue->heap)];
+        pthread_t elem = queue->array[(queue->heap)];
         queue->heap = (queue->heap + 1) % queue->maxSize;
         queue->size--;
         return elem;
@@ -35,6 +34,11 @@ void initDefQueue(circularQueue *queue, int maxSize)
     queue->size = 0;
     queue->heap = 0;
     queue->tail = -1;
-    queue->array = (double *) malloc(sizeof(double) * queue->maxSize);
+    queue->array = (pthread_t *) malloc(sizeof(pthread_t) * queue->maxSize);
+}
+
+void destroyQueue(circularQueue* queue)
+{
+    free(queue->array);    
 }
 
